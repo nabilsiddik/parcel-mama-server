@@ -121,6 +121,21 @@ async function run() {
       res.send(result);
     });
 
+    // update cancle parcel status
+    app.patch("/cancle-parcel/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+
+      const updatedDoc = {
+        $set: {status: 'cancled'}
+      }
+
+      const result = await parcelCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
+
+
+
 
 
 
