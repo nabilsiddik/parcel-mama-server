@@ -70,6 +70,16 @@ async function run() {
       res.send(result);
     });
 
+    // Get current user
+    app.get("/user/:email", async (req, res) => {
+      const email = req.params.email
+      const query = { email }
+
+      const result = await userCollection.findOne(query)
+
+      res.send(result);
+    });
+
     // Parcel related apis
     // Post parcel
     app.post("/parcel", async (req, res) => {
@@ -96,6 +106,15 @@ async function run() {
       res.send(result);
     });
 
+
+    // get all parcels
+    app.get("/parcels", async(req, res) => {
+      const result = await parcelCollection.find().toArray()
+      res.send(result)
+    });
+
+
+
     // Get booked tutorial of specific user
     app.get("/my-parcels/:email", async (req, res) => {
       const email = req.params.email;
@@ -111,8 +130,6 @@ async function run() {
       res.send(result);
     });
 
-
-
     // get parcel by id
     app.get("/parcel/:id", async (req, res) => {
       const id = req.params.id;
@@ -127,38 +144,27 @@ async function run() {
       const query = { _id: new ObjectId(id) };
 
       const updatedDoc = {
-        $set: {status: 'cancled'}
-      }
+        $set: { status: "cancled" },
+      };
 
       const result = await parcelCollection.updateOne(query, updatedDoc);
       res.send(result);
     });
 
-
-
-
-
-
-
     // Update a specific parcel
     app.put("/parcel/:id", async (req, res) => {
-      const id = req.params.id; 
-      const parcel = req.body
+      const id = req.params.id;
+      const parcel = req.body;
 
-      const query = {_id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) };
       const updatedDoc = {
-        $set: parcel
-      }
+        $set: parcel,
+      };
 
-      const result = await parcelCollection.updateOne(query, updatedDoc)
-      
-      res.send(result)
+      const result = await parcelCollection.updateOne(query, updatedDoc);
 
-
+      res.send(result);
     });
-
-
-
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
