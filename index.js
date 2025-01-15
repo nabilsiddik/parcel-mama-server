@@ -28,7 +28,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(morgan("dev"));
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.3u9wf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.3u9wf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -39,13 +39,12 @@ const client = new MongoClient(uri, {
   },
 });
 
-
-
 async function run() {
   try {
     // await client.connect();
 
     const userCollection = client.db("parcel-mama").collection("users");
+    const parcelCollection = client.db("parcel-mama").collection("parcels");
 
     app.get("/", (req, res) => {
       res.send("Servicer is running perfectly");
@@ -70,6 +69,79 @@ async function run() {
       });
       res.send(result);
     });
+
+    // Parcel related apis
+    // Post parcel
+    app.post("/parcel", async (req, res) => {
+      const parcel = req.body;
+      const { parcelWeight } = parcel;
+
+      let price = 50;
+      if (parcelWeight === 1) {
+        price = 50;
+      } else if (parcelWeight === 2) {
+        price = 100;
+      } else {
+        price = 150;
+      }
+
+      const result = await parcelCollection.insertOne({
+        ...parcel,
+        price,
+        status: "pending",
+        apprDeliDate: "",
+        bookingDate: new Date(),
+        deliveryManId: "",
+      });
+      res.send(result);
+    });
+
+    // Get booked tutorial of specific user
+    app.get("/my-parcels/:email", async (req, res) => {
+      const email = req.params.email;
+
+      // if(decodedEmail !== email){
+      //     return res.status(401).send({message: 'unauthorize access'})
+      // }
+
+      const query = { "customer.email": email };
+
+      const result = await parcelCollection.find(query).toArray();
+
+      res.send(result);
+    });
+
+
+
+    // get parcel by id
+    app.get("/parcel/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await parcelCollection.findOne(query);
+      res.send(result);
+    });
+
+
+
+
+
+    // Update a specific parcel
+    app.put("/parcel/:id", async (req, res) => {
+      const id = req.params.id; 
+      const parcel = req.body
+
+      const query = {_id: new ObjectId(id)}
+      const updatedDoc = {
+        $set: parcel
+      }
+
+      const result = await parcelCollection.updateOne(query, updatedDoc)
+      
+      res.send(result)
+
+
+    });
+
 
 
   } finally {
