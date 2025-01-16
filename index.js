@@ -64,9 +64,14 @@ async function run() {
 
       const result = await userCollection.insertOne({
         ...user,
-        role: "user",
         timeStamp: Date.now(),
       });
+      res.send(result);
+    });
+
+    // Get all user
+    app.get("/users", async (req, res) => {
+      const result = await userCollection.find().toArray()
       res.send(result);
     });
 
@@ -145,6 +150,21 @@ async function run() {
 
       const updatedDoc = {
         $set: { status: "cancled" },
+      };
+
+      const result = await parcelCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
+
+
+    // Update deliveryman Id and approximate date
+    app.patch("/parcel/:id", async (req, res) => {
+      const id = req.params.id
+      const {deliveryMan, apprDelDate} = req.body
+      const query = { _id: new ObjectId(id) }
+
+      const updatedDoc = {
+        $set: { deliveryManId: deliveryMan, apprDeliDate : apprDelDate, status: 'on the way' },
       };
 
       const result = await parcelCollection.updateOne(query, updatedDoc);
