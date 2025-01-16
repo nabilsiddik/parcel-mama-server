@@ -64,7 +64,7 @@ async function run() {
 
       const result = await userCollection.insertOne({
         ...user,
-        role: 'user',
+        role: "user",
         bookedParcel: 0,
         timeStamp: Date.now(),
       });
@@ -87,9 +87,7 @@ async function run() {
         );
 
         return { ...user, totalSpent };
-
       });
-
 
       res.send(usersWithTotalSpent);
     });
@@ -102,6 +100,64 @@ async function run() {
       const result = await userCollection.findOne(query);
 
       res.send(result);
+    });
+
+    // Make normal user to admin
+    app.patch("/make-admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+
+      const updatedDoc = {
+        $set: { role: "admin" },
+      };
+
+      const result = await userCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
+
+    // Make normal user to deliveryman
+    app.patch("/make-deliveryman/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+
+      const updatedDoc = {
+        $set: { role: "deliveryman" },
+      };
+
+      const result = await userCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
+
+    // Delivery man related apis
+    // Get all delivery mens
+    app.get("/deliverymens", async (req, res) => {
+      const users = await userCollection.find().toArray();
+
+      const deliveryMens = users.filter((user) => user.role === 'deliveryman')
+
+      res.send(deliveryMens);
+    });
+
+    // get deliveryman id
+    app.get("/deliveryManId/:email", async (req, res) => {
+      const email = req.params.email
+      const query = {email}
+
+      const deliveryMan = await userCollection.findOne(query);
+
+      res.send(deliveryMan._id);
+    });
+
+
+
+    // get delivery list
+    app.get("/deliverylist/:id", async (req, res) => {
+      const id = req.params.id
+      const parcels = await parcelCollection.find().toArray()
+
+      const deliveryList = parcels.filter((parcel) => parcel?.deliveryManId === id)
+
+      res.send(deliveryList);
     });
 
     // Parcel related apis
@@ -130,14 +186,13 @@ async function run() {
       res.send(result);
     });
 
-
     // Increment number of booked parcel by a user
     app.patch("/increment-booked-parcel/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email };
 
       const updatedDoc = {
-        $inc: {bookedParcel : 1},
+        $inc: { bookedParcel: 1 },
       };
 
       const result = await userCollection.updateOne(query, updatedDoc);
