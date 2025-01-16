@@ -71,8 +71,25 @@ async function run() {
 
     // Get all user
     app.get("/users", async (req, res) => {
-      const result = await userCollection.find().toArray();
-      res.send(result);
+      const users = await userCollection.find().toArray();
+      const parcels = await parcelCollection.find().toArray();
+
+      const usersWithTotalSpent = users.map((user) => {
+        const userParcels = parcels.filter(
+          (parcel) => parcel.customer?.email === user.email
+        );
+
+        const totalSpent = userParcels.reduce(
+          (acc, parcel) => acc + parcel.price,
+          0
+        );
+
+        return { ...user, totalSpent };
+
+      });
+
+
+      res.send(usersWithTotalSpent);
     });
 
     // Get current user
@@ -122,20 +139,20 @@ async function run() {
       const { dateFrom, dateTo } = req.query;
 
       try {
-        const query = {}
+        const query = {};
         if (dateFrom && dateTo) {
           query.deliveryDate = {
             $gte: new Date(dateFrom),
             $lte: new Date(dateTo),
-          }
+          };
         } else if (dateFrom) {
-          query.deliveryDate = { $gte: new Date(dateFrom) }
+          query.deliveryDate = { $gte: new Date(dateFrom) };
         } else if (dateTo) {
-          query.deliveryDate = { $lte: new Date(dateTo) }
+          query.deliveryDate = { $lte: new Date(dateTo) };
         }
 
-        const result = await parcelCollection.find(query).toArray()
-        res.send(result)
+        const result = await parcelCollection.find(query).toArray();
+        res.send(result);
       } catch (error) {
         res.status(500).json({ message: "Error fetching parcels", error });
       }
