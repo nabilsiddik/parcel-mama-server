@@ -71,16 +71,16 @@ async function run() {
 
     // Get all user
     app.get("/users", async (req, res) => {
-      const result = await userCollection.find().toArray()
+      const result = await userCollection.find().toArray();
       res.send(result);
     });
 
     // Get current user
     app.get("/user/:email", async (req, res) => {
-      const email = req.params.email
-      const query = { email }
+      const email = req.params.email;
+      const query = { email };
 
-      const result = await userCollection.findOne(query)
+      const result = await userCollection.findOne(query);
 
       res.send(result);
     });
@@ -111,14 +111,35 @@ async function run() {
       res.send(result);
     });
 
-
     // get all parcels
-    app.get("/parcels", async(req, res) => {
-      const result = await parcelCollection.find().toArray()
-      res.send(result)
+    app.get("/parcels", async (req, res) => {
+      const result = await parcelCollection.find().toArray();
+      res.send(result);
     });
 
+    // Search parcels by date range
+    app.get("/search-parcels", async (req, res) => {
+      const { dateFrom, dateTo } = req.query;
 
+      try {
+        const query = {}
+        if (dateFrom && dateTo) {
+          query.deliveryDate = {
+            $gte: new Date(dateFrom),
+            $lte: new Date(dateTo),
+          }
+        } else if (dateFrom) {
+          query.deliveryDate = { $gte: new Date(dateFrom) }
+        } else if (dateTo) {
+          query.deliveryDate = { $lte: new Date(dateTo) }
+        }
+
+        const result = await parcelCollection.find(query).toArray()
+        res.send(result)
+      } catch (error) {
+        res.status(500).json({ message: "Error fetching parcels", error });
+      }
+    });
 
     // Get booked tutorial of specific user
     app.get("/my-parcels/:email", async (req, res) => {
@@ -156,15 +177,18 @@ async function run() {
       res.send(result);
     });
 
-
     // Update deliveryman Id and approximate date
     app.patch("/parcel/:id", async (req, res) => {
-      const id = req.params.id
-      const {deliveryMan, apprDelDate} = req.body
-      const query = { _id: new ObjectId(id) }
+      const id = req.params.id;
+      const { deliveryMan, apprDelDate } = req.body;
+      const query = { _id: new ObjectId(id) };
 
       const updatedDoc = {
-        $set: { deliveryManId: deliveryMan, apprDeliDate : apprDelDate, status: 'on the way' },
+        $set: {
+          deliveryManId: deliveryMan,
+          apprDeliDate: apprDelDate,
+          status: "on the way",
+        },
       };
 
       const result = await parcelCollection.updateOne(query, updatedDoc);
