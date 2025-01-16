@@ -64,6 +64,8 @@ async function run() {
 
       const result = await userCollection.insertOne({
         ...user,
+        role: 'user',
+        bookedParcel: 0,
         timeStamp: Date.now(),
       });
       res.send(result);
@@ -125,6 +127,20 @@ async function run() {
         bookingDate: new Date(),
         deliveryManId: "",
       });
+      res.send(result);
+    });
+
+
+    // Increment number of booked parcel by a user
+    app.patch("/increment-booked-parcel/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+
+      const updatedDoc = {
+        $inc: {bookedParcel : 1},
+      };
+
+      const result = await userCollection.updateOne(query, updatedDoc);
       res.send(result);
     });
 
