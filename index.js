@@ -133,33 +133,33 @@ async function run() {
     app.get("/deliverymens", async (req, res) => {
       const users = await userCollection.find().toArray();
 
-      const deliveryMens = users.filter((user) => user.role === 'deliveryman')
+      const deliveryMens = users.filter((user) => user.role === "deliveryman");
 
       res.send(deliveryMens);
     });
 
     // get deliveryman id
     app.get("/deliveryManId/:email", async (req, res) => {
-      const email = req.params.email
-      const query = {email}
+      const email = req.params.email;
+      const query = { email };
 
       const deliveryMan = await userCollection.findOne(query);
 
       res.send(deliveryMan._id);
     });
 
-
-
     // get delivery list
     app.get("/deliverylist/:id", async (req, res) => {
-      const id = req.params.id
-      const parcels = await parcelCollection.find().toArray()
+      const id = req.params.id;
+      const parcels = await parcelCollection.find().toArray();
 
-      const deliveryList = parcels.filter((parcel) => parcel?.deliveryManId === id)
+      const deliveryList = parcels.filter(
+        (parcel) => parcel?.deliveryManId === id
+      );
 
       res.send(deliveryList);
 
-      console.log(deliveryList)
+      console.log(deliveryList);
     });
 
     // Parcel related apis
@@ -267,10 +267,23 @@ async function run() {
       res.send(result);
     });
 
+    // update delivered parcel status
+    app.patch("/delivered-parcel/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+
+      const updatedDoc = {
+        $set: { status: "delivered" },
+      };
+
+      const result = await parcelCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
+
     // Update deliveryman Id and approximate date
     app.patch("/setdeliveryman/:id", async (req, res) => {
       const id = req.params.id;
-      const {deliveryMan, apprDelDate} = req.body
+      const { deliveryMan, apprDelDate } = req.body;
       const query = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
