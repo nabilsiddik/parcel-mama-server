@@ -158,6 +158,8 @@ async function run() {
       const deliveryList = parcels.filter((parcel) => parcel?.deliveryManId === id)
 
       res.send(deliveryList);
+
+      console.log(deliveryList)
     });
 
     // Parcel related apis
@@ -266,11 +268,10 @@ async function run() {
     });
 
     // Update deliveryman Id and approximate date
-    app.patch("/parcel/:id", async (req, res) => {
+    app.patch("/setdeliveryman/:id", async (req, res) => {
       const id = req.params.id;
-      const { deliveryMan, apprDelDate } = req.body;
+      const {deliveryMan, apprDelDate} = req.body
       const query = { _id: new ObjectId(id) };
-
       const updatedDoc = {
         $set: {
           deliveryManId: deliveryMan,
