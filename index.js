@@ -267,6 +267,16 @@ async function run() {
       res.send(result);
     });
 
+    // number of dlivered parcel
+    app.get("/delivered-parcels", async (req, res) => {
+
+      const parcels = await parcelCollection.find().toArray()
+
+      const deliveredParcels = parcels.filter((parcel) => parcel.status === 'delivered')
+
+      res.send(deliveredParcels);
+    });
+
     // update delivered parcel status
     app.patch("/delivered-parcel/:id", async (req, res) => {
       const id = req.params.id;
