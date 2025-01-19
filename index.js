@@ -280,14 +280,46 @@ async function run() {
     // update delivered parcel status
     app.patch("/delivered-parcel/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
+      const parcelQuery = { _id: new ObjectId(id) };
 
-      const updatedDoc = {
+      const updatedParcelDoc = {
         $set: { status: "delivered" },
       };
 
-      const result = await parcelCollection.updateOne(query, updatedDoc);
-      res.send(result);
+      const parcelResult = await parcelCollection.updateOne(parcelQuery, updatedParcelDoc);
+
+      if (parcelResult.modifiedCount > 0) {
+        const parcel = await parcelCollection.findOne(parcelQuery)
+        const deliveryManId = parcel?.deliveryManId
+
+        if (deliveryManId) {
+          const deliverManQuery = { _id: new ObjectId(deliveryManId) }
+
+          const updatedDeliveryManDoc = {
+            $inc: { numOfDeliveredParcel: 1 }
+          }
+
+          const deliveryManResult = await userCollection.updateOne(deliverManQuery, updatedDeliveryManDoc)
+
+          res.send({ parcelResult, deliveryManResult });
+
+          console.log({ parcelResult, deliveryManResult })
+        }
+      }
+    });
+
+
+    // Find top 3 delivery man
+    app.get("/top-deliverymen", async (req, res) => {
+      const topDeliverymen = await userCollection
+        .find({ role: "deliveryman" })
+        .sort({ numOfDeliveredParcel: -1 })
+        .limit(3)
+        .toArray();
+
+      res.send(topDeliverymen);
+
+      console.log(topDeliverymen)
     });
 
     // Update deliveryman Id and approximate date
