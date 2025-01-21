@@ -45,6 +45,7 @@ async function run() {
 
     const userCollection = client.db("parcel-mama").collection("users");
     const parcelCollection = client.db("parcel-mama").collection("parcels");
+    const reviewCollection = client.db("parcel-mama").collection("reviews");
 
     app.get("/", (req, res) => {
       res.send("Servicer is running perfectly");
@@ -138,7 +139,7 @@ async function run() {
       res.send(deliveryMens);
     });
 
-    // get deliveryman id
+    // get deliveryman id by email
     app.get("/deliveryManId/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email };
@@ -146,6 +147,18 @@ async function run() {
       const deliveryMan = await userCollection.findOne(query);
 
       res.send(deliveryMan._id);
+    });
+
+
+    // get deliveryman id by using parcel id
+    app.get("/deliveryman/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+
+      const parcel = await parcelCollection.findOne(query);
+      const deliveryManId = parcel?.deliveryManId
+console.log(id)
+      res.send(deliveryManId);
     });
 
     // get delivery list
@@ -214,14 +227,14 @@ async function run() {
       try {
         const query = {};
         if (dateFrom && dateTo) {
-          query.deliveryDate = {
-            $gte: new Date(dateFrom),
-            $lte: new Date(dateTo),
+          query.bookingDate = {
+            $gte: new Date(new Date(dateFrom).setHours(0, 0, 0, 0)),
+            $lte: new Date(new Date(dateTo).setHours(23, 59, 59, 999)),
           };
         } else if (dateFrom) {
-          query.deliveryDate = { $gte: new Date(dateFrom) };
+          query.bookingDate = { $gte: new Date(dateFrom) };
         } else if (dateTo) {
-          query.deliveryDate = { $lte: new Date(dateTo) };
+          query.bookingDate = { $lte: new Date(dateTo) };
         }
 
         const result = await parcelCollection.find(query).toArray();
@@ -353,6 +366,25 @@ async function run() {
 
       res.send(result);
     });
+
+
+
+
+
+
+
+    // Review Related APIs
+    // Post a review
+    app.post("/reviews", async (req, res) => {
+      const review = req.body;
+      const result = await reviewCollection.insertOne(review);
+      res.send(result);
+    });
+
+
+
+
+
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
