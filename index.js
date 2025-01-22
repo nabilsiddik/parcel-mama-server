@@ -48,6 +48,7 @@ async function run() {
     const userCollection = client.db("parcel-mama").collection("users");
     const parcelCollection = client.db("parcel-mama").collection("parcels");
     const reviewCollection = client.db("parcel-mama").collection("reviews");
+    const paymentCollection = client.db("parcel-mama").collection("payments");
 
     app.get("/", (req, res) => {
       res.send("Servicer is running perfectly");
@@ -86,6 +87,15 @@ async function run() {
         res.status(500).send({ error: "Failed to create payment intent." })
       }
     });
+
+
+    // Post payment
+    app.post('/payments', async(req, res) => {
+      const payment = req.body
+      console.log(payment)
+      const result = await paymentCollection.insertOne(payment)
+      res.send(result)
+    })
 
 
     // User related APIs
