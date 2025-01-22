@@ -7,6 +7,8 @@ const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
 
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -50,6 +52,41 @@ async function run() {
     app.get("/", (req, res) => {
       res.send("Servicer is running perfectly");
     });
+
+
+    // Payment related apis
+    app.post("/create-payment-intent", async (req, res) => {
+      try {
+        const { price } = req.body;
+
+        console.log('my price',price)
+
+        if (!price || isNaN(price) || price < 0.5) {
+          return res.status(400).send({
+            error: "The price must be at least $0.50 and should be a valid number.",
+          });
+        }
+
+
+        const amount = Math.round(price * 100);
+        console.log('Calculated Amount (in cents):', amount);
+
+        // Create a PaymentIntent with the order amount and currency
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: "usd",
+          payment_method_types: ['card']
+        });
+
+        res.send({
+          clientSecret: paymentIntent.client_secret,
+        });
+      }catch(error){
+        console.error(error);
+        res.status(500).send({ error: "Failed to create payment intent." })
+      }
+    });
+
 
     // User related APIs
     // Post users
@@ -157,7 +194,7 @@ async function run() {
 
       const parcel = await parcelCollection.findOne(query);
       const deliveryManId = parcel?.deliveryManId
-console.log(id)
+      console.log(id)
       res.send(deliveryManId);
     });
 
@@ -187,7 +224,7 @@ console.log(id)
       } else if (parcelWeight === 2) {
         price = 100;
       } else {
-        price = 150;
+        price = 5550;
       }
 
       const result = await parcelCollection.insertOne({
@@ -219,6 +256,9 @@ console.log(id)
       const result = await parcelCollection.find().toArray();
       res.send(result);
     });
+
+
+
 
     // Search parcels by date range
     app.get("/search-parcels", async (req, res) => {
