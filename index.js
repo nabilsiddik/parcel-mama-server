@@ -30,6 +30,28 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(morgan("dev"));
 
+
+// Verify token
+
+const verifyToken = (req, res, next) => {
+  console.log('inside verify token', req.headers.authorization)
+  if (!req.headers.authorization) {
+    return res.status(401).send({ message: 'Forbidden access' })
+  }
+
+  const token = req.headers.authorization.split(' ')[1]
+
+  jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: 'Forbidden access' })
+    }
+    req.decoded = decoded
+    next()
+  })
+}
+
+
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.3u9wf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create MongoClient with a MongoClientOptions object to set the Stable API version
@@ -55,12 +77,38 @@ async function run() {
     });
 
 
+
+    // use verify admin after verify token
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email
+      const query = { email: email }
+      const user = await userCollection.findOne(query)
+
+      const isAdmin = user?.role === 'admin'
+
+      if (!isAdmin) {
+        return res.status(403).send({ message: 'forbidden access' })
+      }
+
+      next()
+
+    }
+
+
+    // Jwt related apis
+    app.post('/jwt', async (req, res) => {
+      const user = req.body
+      const token = jwt.sign(user, process.env.SECRET_KEY, {
+        expiresIn: '1h'
+      })
+
+      res.send({ token })
+    })
+
     // Payment related apis
     app.post("/create-payment-intent", async (req, res) => {
       try {
         const { price } = req.body;
-
-        console.log('my price',price)
 
         if (!price || isNaN(price) || price < 0.5) {
           return res.status(400).send({
@@ -70,7 +118,6 @@ async function run() {
 
 
         const amount = Math.round(price * 100);
-        console.log('Calculated Amount (in cents):', amount);
 
         // Create a PaymentIntent with the order amount and currency
         const paymentIntent = await stripe.paymentIntents.create({
@@ -82,7 +129,7 @@ async function run() {
         res.send({
           clientSecret: paymentIntent.client_secret,
         });
-      }catch(error){
+      } catch (error) {
         console.error(error);
         res.status(500).send({ error: "Failed to create payment intent." })
       }
@@ -90,9 +137,8 @@ async function run() {
 
 
     // Post payment
-    app.post('/payments', async(req, res) => {
+    app.post('/payments', async (req, res) => {
       const payment = req.body
-      console.log(payment)
       const result = await paymentCollection.insertOne(payment)
       res.send(result)
     })
@@ -100,27 +146,29 @@ async function run() {
 
     // User related APIs
     // Post users
-    app.post("/users/:email", async (req, res) => {
-      const email = req.params.email;
-      const user = req.body;
-      const query = { email };
+    app.post("/users/:email",
+      async (req, res) => {
+        const email = req.params.email;
+        const user = req.body;
+        const query = { email };
 
-      const isExist = await userCollection.findOne(query);
-      if (isExist) {
-        return res.send(isExist);
-      }
+        const isExist = await userCollection.findOne(query);
+        if (isExist) {
+          return res.send(isExist);
+        }
 
-      const result = await userCollection.insertOne({
-        ...user,
-        role: "user",
-        bookedParcel: 0,
-        timeStamp: Date.now(),
+        const result = await userCollection.insertOne({
+          ...user,
+          role: "user",
+          bookedParcel: 0,
+          timeStamp: Date.now(),
+        });
+        res.send(result);
       });
-      res.send(result);
-    });
 
     // Get all user
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
+
       const users = await userCollection.find().toArray();
       const parcels = await parcelCollection.find().toArray();
 
@@ -140,6 +188,7 @@ async function run() {
       res.send(usersWithTotalSpent);
     });
 
+
     // Get current user
     app.get("/user/:email", async (req, res) => {
       const email = req.params.email;
@@ -150,8 +199,28 @@ async function run() {
       res.send(result);
     });
 
+
+    // get admin
+    app.get("/users/admin/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: 'unauthorized access' })
+      }
+
+      const query = { email };
+
+      const user = await userCollection.findOne(query);
+      let admin = false
+      if (user) {
+        admin = user?.role === 'admin'
+      }
+      res.send({ admin });
+    });
+
+
     // Make normal user to admin
-    app.patch("/make-admin/:id", async (req, res) => {
+    app.patch("/make-admin/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
 
@@ -164,7 +233,7 @@ async function run() {
     });
 
     // Make normal user to deliveryman
-    app.patch("/make-deliveryman/:id", async (req, res) => {
+    app.patch("/make-deliveryman/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
 
@@ -204,7 +273,6 @@ async function run() {
 
       const parcel = await parcelCollection.findOne(query);
       const deliveryManId = parcel?.deliveryManId
-      console.log(id)
       res.send(deliveryManId);
     });
 
@@ -219,7 +287,6 @@ async function run() {
 
       res.send(deliveryList);
 
-      console.log(deliveryList);
     });
 
     // Parcel related apis
@@ -366,7 +433,6 @@ async function run() {
 
           res.send({ parcelResult, deliveryManResult });
 
-          console.log({ parcelResult, deliveryManResult })
         }
       }
     });
@@ -382,11 +448,10 @@ async function run() {
 
       res.send(topDeliverymen);
 
-      console.log(topDeliverymen)
     });
 
     // Update deliveryman Id and approximate date
-    app.patch("/setdeliveryman/:id", async (req, res) => {
+    app.patch("/setdeliveryman/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const { deliveryMan, apprDelDate } = req.body;
       const query = { _id: new ObjectId(id) };
@@ -445,3 +510,6 @@ run().catch(console.dir);
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
+
+
