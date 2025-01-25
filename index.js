@@ -17,8 +17,8 @@ const port = process.env.PORT || 5000;
 const corsOptions = {
   origin: [
     "http://localhost:5173",
-    "https://user-authentication-30262.firebaseapp.com",
-    "https://user-authentication-30262.web.app",
+    "https://my-project-22db9.firebaseapp.com",
+    "https://my-project-22db9.web.app",
   ],
   credentials: true,
   optionalSuccessStatus: 200,
@@ -34,7 +34,6 @@ app.use(morgan("dev"));
 // Verify token
 
 const verifyToken = (req, res, next) => {
-  console.log('inside verify token', req.headers.authorization)
   if (!req.headers.authorization) {
     return res.status(401).send({ message: 'Forbidden access' })
   }
@@ -150,6 +149,7 @@ async function run() {
       async (req, res) => {
         const email = req.params.email;
         const user = req.body;
+        const { role, phone } = req.body
         const query = { email };
 
         const isExist = await userCollection.findOne(query);
@@ -159,7 +159,8 @@ async function run() {
 
         const result = await userCollection.insertOne({
           ...user,
-          role: "user",
+          role: role ? role : 'user',
+          phone: phone ? phone : 8801,
           bookedParcel: 0,
           timeStamp: Date.now(),
         });
@@ -167,7 +168,7 @@ async function run() {
       });
 
     // Get all user
-    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/users", async (req, res) => {
 
       const users = await userCollection.find().toArray();
       const parcels = await parcelCollection.find().toArray();
@@ -196,6 +197,39 @@ async function run() {
 
       const result = await userCollection.findOne(query);
 
+      res.send(result);
+    });
+
+    // update delivery man rating
+    app.patch("/update-deliverman-rating/:id", async (req, res) => {
+      const id = req.params.id;
+      const { rating } = req.body
+
+      const parcel = await parcelCollection.findOne({ _id: new ObjectId(id) })
+
+      const deliveryManId = parcel?.deliveryManId
+
+      if (!deliveryManId) {
+        return res.status(404).send({ message: "Delivery man not found for this parcel" });
+      }
+
+      const deliveryMan = await userCollection.findOne({ _id: new ObjectId(deliveryManId) });
+      const currentRating = deliveryMan?.rating || 0
+      const reviewCount = deliveryMan?.reviewCount || 0
+
+      const newReviewCount = reviewCount + 1
+      const newAverageRating = ((currentRating * reviewCount) + rating) / newReviewCount
+
+      const deliveryManQuery = { _id: new ObjectId(deliveryManId) }
+
+      const updatedDoc = {
+        $set: {
+          avarageRating: newAverageRating,
+          reviewCount: newReviewCount
+        }
+      };
+
+      const result = await userCollection.updateOne(deliveryManQuery, updatedDoc);
       res.send(result);
     });
 
@@ -301,7 +335,7 @@ async function run() {
       } else if (parcelWeight === 2) {
         price = 100;
       } else {
-        price = 5550;
+        price = 150;
       }
 
       const result = await parcelCollection.insertOne({
@@ -313,6 +347,26 @@ async function run() {
         deliveryManId: "",
       });
       res.send(result);
+    });
+
+
+    // Sort parcel by status
+    app.get("/sort-parcel", async (req, res) => {
+      const { status } = req.query;
+
+      try {
+        // Sort by the `status` field in ascending or descending order
+        const parcels = await parcelCollection
+          .find()
+          .sort({ status: status === "delivered" ? 1 : -1 }) // Correct sorting logic
+          .toArray();
+
+        console.log("Sorting by status:", status);
+        res.send(parcels);
+      } catch (error) {
+        console.error("Error fetching sorted parcels:", error);
+        res.status(500).send({ message: "Failed to fetch sorted parcels." });
+      }
     });
 
     // Increment number of booked parcel by a user
@@ -442,7 +496,7 @@ async function run() {
     app.get("/top-deliverymen", async (req, res) => {
       const topDeliverymen = await userCollection
         .find({ role: "deliveryman" })
-        .sort({ numOfDeliveredParcel: -1 })
+        .sort({ numOfDeliveredParcel: -1, avarageRating: -1 })
         .limit(3)
         .toArray();
 
@@ -494,6 +548,14 @@ async function run() {
       const review = req.body;
       const result = await reviewCollection.insertOne(review);
       res.send(result);
+    });
+
+    // get all reviews of a specific deliveryman
+    app.get("/reviews/:id", async (req, res) => {
+      const id = req.params.id
+      const query = { deliveryMan: id }
+      const reviews = await reviewCollection.find(query).toArray();
+      res.send(reviews);
     });
 
 
