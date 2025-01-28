@@ -350,25 +350,6 @@ async function run() {
     });
 
 
-    // Sort parcel by status
-    app.get("/sort-parcel", async (req, res) => {
-      const { status } = req.query;
-
-      try {
-        // Sort by the `status` field in ascending or descending order
-        const parcels = await parcelCollection
-          .find()
-          .sort({ status: status === "delivered" ? 1 : -1 }) // Correct sorting logic
-          .toArray();
-
-        console.log("Sorting by status:", status);
-        res.send(parcels);
-      } catch (error) {
-        console.error("Error fetching sorted parcels:", error);
-        res.status(500).send({ message: "Failed to fetch sorted parcels." });
-      }
-    });
-
     // Increment number of booked parcel by a user
     app.patch("/increment-booked-parcel/:email", async (req, res) => {
       const email = req.params.email;
