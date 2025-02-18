@@ -3,11 +3,18 @@ const cors = require("cors");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
+const Stripe = require("stripe")
+
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
 
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+const formData = require('form-data');
+const Mailgun = require('mailgun.js');
+const { default: axios } = require("axios");
+const mailgun = new Mailgun(formData);
+const mg = mailgun.client({ username: 'api', key: process.env.MAIL_GUN_API_KEY || 'key-yourkeyhere' });
+
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -64,8 +71,22 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // await client.connect();
 
+
+    // Store ID: parce679d7db974524
+    // Store Password (API/Secret Key): parce679d7db974524@ssl
+    // Merchant Panel URL: https://sandbox.sslcommerz.com/manage/ (Credential as you inputted in the time of registration)
+
+    // Store name: testparcemuir
+    // Registered URL: www.parcelmama.com
+    // Session API to generate transaction: https://sandbox.sslcommerz.com/gwprocess/v3/api.php
+    // Validation API: https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php?wsdl
+    // Validation API(Web Service) name: https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php
+    
+    // You may check our plugins available for multiple carts and libraries: https://github.com/sslcommerz
+
+
+    // await client.connect();
     const userCollection = client.db("parcel-mama").collection("users");
     const parcelCollection = client.db("parcel-mama").collection("parcels");
     const reviewCollection = client.db("parcel-mama").collection("reviews");
@@ -75,6 +96,59 @@ async function run() {
       res.send("Servicer is running perfectly");
     });
 
+
+    // Step 1 - payment initiate
+    app.post('/create-ssl-payment', async(req, res) => {
+      const payment = req.body
+      const tran_id = new ObjectId().toString()
+ 
+      const initiate = {
+        store_id: `parce679d7db974524`,
+        store_password: `parce679d7db974524@ssl`,
+        total_amount: payment.price,
+        currency: 'BDT',
+        tran_id: tran_id, // use unique tran_id for each api call
+        success_url: `http://localhost:5000/success-payment`,
+        fail_url: 'http://localhost:3030/fail',
+        cancel_url: 'http://localhost:3030/cancel',
+        ipn_url: `http://localhost:3000/ipn-success-payment`,
+        shipping_method: 'Courier',
+        product_name: 'Computer.',
+        product_category: 'Electronic',
+        product_profile: 'general',
+        cus_name: `${payment?.username}`,
+        cus_email: `${payment?.userEmail}`,
+        cus_add1: 'Dhaka',
+        cus_add2: 'Dhaka',
+        cus_city: 'Dhaka',
+        cus_state: 'Dhaka',
+        cus_postcode: '1000',
+        cus_country: 'Bangladesh',
+        cus_phone: '01711111111',
+        cus_fax: '01711111111',
+        ship_name: 'Customer Name',
+        ship_add1: 'Dhaka',
+        ship_add2: 'Dhaka',
+        ship_city: 'Dhaka',
+        ship_state: 'Dhaka',
+        ship_postcode: 1000,
+        ship_country: 'Bangladesh',
+      }
+
+      const iniResponse = await axios({
+        url: 'https://sandbox.sslcommerz.com/gwprocess/v4/api.php',
+        method: 'POST',
+        data: initiate,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      })
+
+      console.log(process.env.MAIN_URL, process.env.SSLCOMMERZ_STORE_ID, process.env.SSLCOMMERZ_STORE_PASSWORD)
+
+      console.log(iniResponse)
+
+    })
 
 
     // use verify admin after verify token
@@ -105,6 +179,7 @@ async function run() {
     })
 
     // Payment related apis
+    const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
     app.post("/create-payment-intent", async (req, res) => {
       try {
         const { price } = req.body;
@@ -139,6 +214,24 @@ async function run() {
     app.post('/payments', async (req, res) => {
       const payment = req.body
       const result = await paymentCollection.insertOne(payment)
+
+
+      mg.messages.create(process.env.MAIL_GUN_SENDING_DOMAIN, {
+        from: "Parcel Mama <mailgun@YOUR-SANDBOX-DOMAIN>",
+        to: ["nabilsiddik90@gmail.com"],
+        subject: "Payment Successfull",
+        text: "Your payment to Parcel Mama is Successfull",
+        html: `
+          <div>
+            <h1>Payment Successfull</h1>
+            <p>Thank you. Yur Payment Is Successful</p>
+          </div>
+        `
+      })
+        .then(msg => console.log(msg)) // logs response data
+        .catch(err => console.error(err)); // logs any error
+
+
       res.send(result)
     })
 
@@ -365,8 +458,13 @@ async function run() {
 
     // get all parcels
     app.get("/parcels", async (req, res) => {
-      const result = await parcelCollection.find().toArray();
-      res.send(result);
+      try{
+        const limit = parseInt(req.query.limit) || 0
+        const result = await parcelCollection.find().sort({_id: -1}).limit(limit).toArray()
+        res.send(result)
+      }catch(error){
+        res.status(500).send({message: 'Error fetching parcels', error})
+      }
     });
 
 
