@@ -469,7 +469,6 @@ async function run() {
 
 
 
-
     // Search parcels by date range
     app.get("/search-parcels", async (req, res) => {
       const { dateFrom, dateTo } = req.query;
