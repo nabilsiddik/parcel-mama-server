@@ -31,7 +31,7 @@ const corsOptions = {
   optionalSuccessStatus: 200,
 };
 
-// // Middleware
+// Middlewares
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
